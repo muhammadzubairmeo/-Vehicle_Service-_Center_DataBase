@@ -1,0 +1,149 @@
+
+<style>
+#erd { padding: 1rem 0; }
+#erd svg { max-width: 100%; }
+#erd svg.erDiagram .divider path { stroke-opacity: 0.4; }
+#erd svg.erDiagram .row-rect-odd path,
+#erd svg.erDiagram .row-rect-odd rect,
+#erd svg.erDiagram .row-rect-even path,
+#erd svg.erDiagram .row-rect-even rect { stroke: none !important; }
+</style>
+<div id="erd"><p style="color:var(--color-text-secondary);font-size:13px">Rendering diagram…</p></div>
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+await document.fonts.ready;
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  er: { diagramPadding: 20, layoutDirection: 'TB', minEntityWidth: 100, minEntityHeight: 75, entityPadding: 15, useMaxWidth: true },
+  fontFamily: '"Anthropic Sans", sans-serif',
+  themeVariables: {
+    darkMode: dark,
+    fontSize: '12px',
+    fontFamily: '"Anthropic Sans", sans-serif',
+    lineColor: dark ? '#9c9a92' : '#73726c',
+    textColor: dark ? '#c2c0b6' : '#3d3d3a',
+    primaryColor: dark ? '#1e3a5f' : '#E6F1FB',
+    primaryBorderColor: dark ? '#378ADD' : '#185FA5',
+    primaryTextColor: dark ? '#c2c0b6' : '#0C447C',
+    secondaryColor: dark ? '#1a3a2a' : '#E1F5EE',
+    tertiaryColor: dark ? '#2a2010' : '#FAEEDA',
+  },
+});
+
+const diagram = `erDiagram
+  customers {
+    int customer_id PK
+    varchar full_name
+    varchar phone
+    varchar email
+    varchar city
+    timestamp created_at
+  }
+  vehicle_makes {
+    smallint make_id PK
+    varchar make_name
+  }
+  vehicle_models {
+    smallint model_id PK
+    smallint make_id FK
+    varchar model_name
+  }
+  vehicles {
+    int vehicle_id PK
+    int customer_id FK
+    smallint model_id FK
+    year year
+    varchar reg_number
+    varchar color
+    int mileage_km
+  }
+  employees {
+    int employee_id PK
+    varchar full_name
+    enum role
+    varchar phone
+    date hire_date
+    decimal salary
+  }
+  service_types {
+    smallint service_type_id PK
+    varchar service_name
+    decimal base_labor_cost
+  }
+  parts {
+    int part_id PK
+    varchar part_name
+    varchar part_number
+    decimal selling_price
+    int stock_qty
+    int reorder_level
+  }
+  job_cards {
+    int job_id PK
+    int vehicle_id FK
+    int advisor_id FK
+    datetime date_in
+    datetime date_out
+    enum status
+    decimal grand_total
+  }
+  job_services {
+    int job_service_id PK
+    int job_id FK
+    smallint service_type_id FK
+    int mechanic_id FK
+    decimal labor_cost
+  }
+  job_parts {
+    int job_part_id PK
+    int job_id FK
+    int part_id FK
+    int qty_used
+    decimal unit_price
+  }
+
+  customers    ||--o{ vehicles      : owns
+  vehicle_makes ||--o{ vehicle_models : has
+  vehicle_models ||--o{ vehicles     : categorizes
+  vehicles     ||--o{ job_cards     : generates
+  employees    ||--o{ job_cards     : advises
+  job_cards    ||--o{ job_services  : includes
+  job_cards    ||--o{ job_parts     : uses
+  service_types ||--o{ job_services : performed_as
+  parts        ||--o{ job_parts     : issued_in
+  employees    ||--o{ job_services  : performs
+`;
+
+try {
+  const { svg } = await mermaid.render('erd-svg', diagram);
+  document.getElementById('erd').innerHTML = svg;
+
+  document.querySelectorAll('#erd svg.erDiagram .node').forEach(node => {
+    const firstPath = node.querySelector('path[d]');
+    if (!firstPath) return;
+    const d = firstPath.getAttribute('d');
+    const nums = d.match(/-?[\d.]+/g)?.map(Number);
+    if (!nums || nums.length < 8) return;
+    const xs = [nums[0], nums[2], nums[4], nums[6]];
+    const ys = [nums[1], nums[3], nums[5], nums[7]];
+    const x = Math.min(...xs), y = Math.min(...ys);
+    const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', x); rect.setAttribute('y', y);
+    rect.setAttribute('width', w); rect.setAttribute('height', h);
+    rect.setAttribute('rx', '8');
+    for (const a of ['fill', 'stroke', 'stroke-width', 'class', 'style']) {
+      if (firstPath.hasAttribute(a)) rect.setAttribute(a, firstPath.getAttribute(a));
+    }
+    firstPath.replaceWith(rect);
+  });
+
+  document.querySelectorAll('#erd svg.erDiagram .row-rect-odd path, #erd svg.erDiagram .row-rect-even path').forEach(p => {
+    p.setAttribute('stroke', 'none');
+  });
+} catch(e) {
+  document.getElementById('erd').innerHTML = '<p style="color:var(--color-text-danger);font-size:13px">Error rendering diagram: ' + e.message + '</p>';
+}
+</script>
